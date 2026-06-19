@@ -73,23 +73,30 @@ $('copyBtn').addEventListener('click', async () => {
 
 $('stopBtn').addEventListener('click', stopSharing);
 
-// ---- PeerJS: 部屋IDで待ち受け、参加者の呼び出しに画面で応答 ---------------
+// ---- PeerJS: 部屋IDで待ち受け、参加者が来たらホストから画面を発呼 ---------
 function startPeer() {
-  // 部屋ID = PeerのID。参加者はこのIDに対して call してくる。
+  // 部屋ID = PeerのID。参加者はこのIDにデータ接続してくる。
   peer = new Peer(roomId, PEER_CONFIG);
 
   peer.on('open', () => setPeerStatus('参加者の接続を待っています…', 'wait'));
 
-  peer.on('call', (call) => {
-    activeCall = call;
-    // 参加者からの呼び出しに、こちらの画面ストリームで応答する
-    call.answer(localStream);
-    setPeerStatus('参加者が接続しました ✓ 共有中', 'live');
+  // 参加者はまずデータ接続で自分のIDを知らせてくる。
+  // 画面ストリームを「持っているホスト側から」発呼することで、
+  // 最初のオファーに映像・音声トラックが確実に載り、受信が安定する。
+  peer.on('connection', (conn) => {
+    conn.on('open', () => {
+      if (activeCall) { try { activeCall.close(); } catch {} }
 
-    // 内部の RTCPeerConnection を取り出して低遅延チューニング
-    if (call.peerConnection) tuneSenders(call.peerConnection);
+      const call = peer.call(conn.peer, localStream);
+      activeCall = call;
+      setPeerStatus('参加者が接続しました ✓ 共有中', 'live');
 
-    call.on('close', () => setPeerStatus('参加者が退出しました。再接続を待っています…', 'wait'));
+      // 内部の RTCPeerConnection を取り出して低遅延チューニング
+      if (call.peerConnection) tuneSenders(call.peerConnection);
+
+      call.on('close', () => setPeerStatus('参加者が退出しました。再接続を待っています…', 'wait'));
+    });
+    conn.on('close', () => setPeerStatus('参加者が退出しました。再接続を待っています…', 'wait'));
   });
 
   peer.on('error', (err) => {

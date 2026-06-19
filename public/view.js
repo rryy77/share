@@ -27,14 +27,11 @@ $('joinBtn').addEventListener('click', () => {
 function connect() {
   peer = new Peer(PEER_CONFIG);
 
-  peer.on('open', () => {
-    // ホスト(部屋ID)に対して呼び出し。受信専用なので空ストリームを渡す。
-    call = peer.call(roomId, new MediaStream());
-    if (!call) {
-      $('overlayMsg').textContent = 'ホストに接続できませんでした。リンクを確認してください。';
-      $('joinBtn').disabled = false;
-      return;
-    }
+  // ホストからの「呼び出し」を受けたら、受信専用で応答して映像を受け取る。
+  // （ストリームを持つホスト側が発呼者になるので stream が確実に届く）
+  peer.on('call', (incoming) => {
+    call = incoming;
+    call.answer(); // 受信専用：こちらからは何も送らない
 
     call.on('stream', (remoteStream) => {
       const video = $('remote');
@@ -49,6 +46,15 @@ function connect() {
 
     call.on('close', () => {
       showOverlay('共有が終了しました', 'ホストが画面共有を停止しました。');
+    });
+  });
+
+  peer.on('open', () => {
+    // データ接続でホストに自分の存在を知らせる（これを合図にホストが発呼する）
+    const conn = peer.connect(roomId);
+    conn.on('error', () => {
+      showOverlay('ホストが見つかりません', 'ホストがまだ共有を開始していないか、リンクが古い可能性があります。');
+      $('joinBtn').disabled = false;
     });
   });
 
