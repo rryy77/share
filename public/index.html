@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Watch — 画面共有（ホスト）</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="brand"><span class="dot"></span> Watch</div>
+    <div class="tagline">音ズレ・ラグの無い、画面共有専用アプリ（ホスト）</div>
+
+    <div class="card">
+      <!-- ステップ1: 共有開始前 -->
+      <section id="stepStart">
+        <p class="hint">
+          「画面共有を開始」を押すと、共有したいアプリのウィンドウまたは画面全体を選べます。<br>
+          選択するとプレビューが表示され、招待リンクを作成できるようになります。
+        </p>
+        <div class="mt">
+          <button id="startBtn" class="big">🖥️　画面共有を開始</button>
+        </div>
+      </section>
+
+      <!-- ステップ2: 共有中 -->
+      <section id="stepLive" class="hidden">
+        <div class="row" style="justify-content: space-between;">
+          <span id="statusPill" class="status live"><span class="led"></span>共有中</span>
+          <button id="stopBtn" class="ghost danger" style="color:#fff;border:none;">共有を停止</button>
+        </div>
+
+        <div class="preview-wrap">
+          <video id="preview" autoplay playsinline muted></video>
+        </div>
+
+        <div class="metrics">
+          <span>解像度 <b id="mRes">—</b></span>
+          <span>FPS <b id="mFps">—</b></span>
+          <span>ビットレート <b id="mBitrate">—</b></span>
+          <span>音声 <b id="mAudio">—</b></span>
+        </div>
+
+        <div class="mt" id="inviteArea">
+          <button id="inviteBtn" class="big">🔗　招待リンクを作成</button>
+        </div>
+
+        <div id="linkArea" class="hidden">
+          <p class="hint mt">このリンクを参加者に送ってください（1名のみ参加できます）:</p>
+          <div class="link-box">
+            <input id="linkInput" readonly />
+            <button id="copyBtn">コピー</button>
+          </div>
+          <p class="hint mt" id="peerStatus">参加者の接続を待っています…</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="/host.js"></script>
+</body>
+</html>

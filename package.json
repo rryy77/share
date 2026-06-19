@@ -1,0 +1,10 @@
+{
+  "name": "share",
+  "version": "1.0.0",
+  "description": "低遅延・音ズレ無しの画面共有専用Webアプリ (WebRTC P2P / Vercel)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

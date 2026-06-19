@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Watch — 画面共有を視聴</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- 全画面ステージ -->
+  <div class="viewer-stage">
+    <video id="remote" autoplay playsinline></video>
+    <span id="badge" class="viewer-badge status live"><span class="led"></span>視聴中</span>
+  </div>
+
+  <!-- 開始オーバーレイ（音声付き自動再生にはクリックが必要なため） -->
+  <div id="overlay" class="overlay">
+    <div class="brand"><span class="dot"></span> Watch</div>
+    <h1 id="overlayTitle">ホストの画面を視聴します</h1>
+    <p class="hint" id="overlayMsg">下のボタンを押すと、ホストの画面と音声が表示されます。</p>
+    <button id="joinBtn" class="big" style="max-width:320px;">▶　視聴を開始</button>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="/view.js"></script>
+</body>
+</html>
