@@ -9,40 +9,92 @@ let activeCall = null; // 参加者との MediaConnection
 let roomId = null;
 let statsTimer = null;
 
+// 画面共有の取得条件（開始時と切り替え時で共通）
+const DISPLAY_CONSTRAINTS = {
+  video: {
+    frameRate: { ideal: 60, max: 60 }, // 動きを滑らかに
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  },
+  audio: {
+    // 音声処理を切ってそのまま流す＝遅延と加工を避ける
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    sampleRate: 48000,
+  },
+};
+
+// 取得したストリームの映像トラックに低遅延向けの設定を施す
+function prepareVideoTrack(stream) {
+  const vTrack = stream.getVideoTracks()[0];
+  if (vTrack && 'contentHint' in vTrack) vTrack.contentHint = 'motion'; // 動き重視
+  vTrack?.addEventListener('ended', stopSharing); // ブラウザの「共有を停止」対応
+  return vTrack;
+}
+
 // ---- ステップ1: 画面共有を開始 -------------------------------------------
 $('startBtn').addEventListener('click', async () => {
   try {
-    localStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        frameRate: { ideal: 60, max: 60 }, // 動きを滑らかに
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-      },
-      audio: {
-        // 音声処理を切ってそのまま流す＝遅延と加工を避ける
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-        sampleRate: 48000,
-      },
-    });
+    localStream = await navigator.mediaDevices.getDisplayMedia(DISPLAY_CONSTRAINTS);
   } catch (err) {
     if (err && err.name === 'NotAllowedError') return; // ユーザーがキャンセル
     alert('画面共有を開始できませんでした: ' + (err?.message || err));
     return;
   }
 
-  // 画面共有は「動き重視」をヒント（テキスト主体なら 'detail' に）
-  const vTrack = localStream.getVideoTracks()[0];
-  if (vTrack && 'contentHint' in vTrack) vTrack.contentHint = 'motion';
-  vTrack?.addEventListener('ended', stopSharing); // ブラウザの「共有を停止」対応
-
+  prepareVideoTrack(localStream);
   $('preview').srcObject = localStream;
   $('stepStart').classList.add('hidden');
   $('stepLive').classList.remove('hidden');
   $('mAudio').textContent = localStream.getAudioTracks().length ? 'あり' : 'なし（共有時に音声を含めてください）';
 
   startStatsLoop();
+});
+
+// ---- 共有画面を切り替え（共有を止めずにソースだけ差し替え） ----------------
+$('switchBtn').addEventListener('click', async () => {
+  let newStream;
+  try {
+    newStream = await navigator.mediaDevices.getDisplayMedia(DISPLAY_CONSTRAINTS);
+  } catch (err) {
+    if (err && err.name === 'NotAllowedError') return; // ユーザーがキャンセル
+    alert('共有画面を切り替えられませんでした: ' + (err?.message || err));
+    return;
+  }
+
+  const newVideo = prepareVideoTrack(newStream);
+  const newAudio = newStream.getAudioTracks()[0];
+
+  // 参加者と接続中なら、再接続せずに送信トラックだけ差し替える（シームレス切替）
+  const pc = activeCall?.peerConnection;
+  if (pc) {
+    try {
+      const senders = pc.getSenders();
+      const vSender = senders.find((s) => s.track && s.track.kind === 'video');
+      if (vSender && newVideo) await vSender.replaceTrack(newVideo);
+      const aSender = senders.find((s) => s.track && s.track.kind === 'audio');
+      if (aSender && newAudio) await aSender.replaceTrack(newAudio);
+      tuneSenders(pc); // ビットレート等を再適用
+    } catch (err) {
+      console.error('トラック差し替えに失敗:', err);
+    }
+  }
+
+  // プレビューと参照を新しいものへ更新し、古いストリームを後始末
+  const oldStream = localStream;
+  localStream = newStream;
+  $('preview').srcObject = localStream;
+  $('mAudio').textContent = localStream.getAudioTracks().length ? 'あり' : 'なし（共有時に音声を含めてください）';
+
+  if (oldStream) {
+    for (const t of oldStream.getTracks()) {
+      t.removeEventListener('ended', stopSharing);
+      // sender にまだ使われているトラック（差し替えなかった音声など）は止めない
+      const stillUsed = pc && pc.getSenders().some((s) => s.track === t);
+      if (!stillUsed) t.stop();
+    }
+  }
 });
 
 // ---- ステップ2: 招待リンク作成（= PeerJS で待ち受け開始） -----------------
